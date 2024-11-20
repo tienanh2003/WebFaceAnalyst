@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Face Recognition System</title>
+
+    <link
+      href="{{ url_for('static', filename='styles/user.css') }}"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <!-- Google Fonts -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Lato:300,400,700,900&display=swap"
+    />
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.min.css"
+    />
+    <!-- Font Awesome CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
+    />
+    <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
+  </head>
+  <body>
+    <h1>Profile</h1>
+    <div class="student-profile py-4">
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-4">
+            <div class="card shadow-sm">
+              <div class="card-header bg-transparent text-center">
+                <img
+                  class="profile_img"
+                  src="{{ url_for('static', filename='Files/Images/' + username + '.png') }}"
+                  alt="student dp"
+                />
+                <h3>{{ username }}</h3>
+              </div>
+              <div class="card-body">
+                <p class="mb-0">
+                  <strong class="pr-1">Student ID:</strong>{{ user_id }}
+                </p>
+                <p class="mb-0">
+                  <strong class="pr-1">Date of Birth:</strong> (Not provided)
+                </p>
+                <p class="mb-0">
+                  <strong class="pr-1">Address:</strong> (Not provided)
+                </p>
+                <p class="mb-0">
+                  <strong class="pr-1">Phone Number:</strong> (Not provided)
+                </p>
+                <p class="mb-0">
+                  <strong class="pr-1">Email:</strong> {{ username }}@example.com
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-8">
+            <div class="card shadow-sm">
+              <div class="card-header bg-transparent border-0">
+                <h3 class="mb-0">
+                  <i class="far fa-clone pr-1"></i>General Information
+                </h3>
+              </div>
+              <div class="card-body pt-0">
+                <table class="table table-bordered">
+                  <tr>
+                    <th width="30%">Major</th>
+                    <td>Unknown</td>
+                  </tr>
+                  <tr>
+                    <th width="30%">Course Started</th>
+                    <td>Unknown</td>
+                  </tr>
+                  <tr>
+                    <th width="30%">Academic Standing</th>
+                    <td>Unknown</td>
+                  </tr>
+                  <tr>
+                    <th width="30%">Current Year</th>
+                    <td>Unknown</td>
+                  </tr>
+                  <tr>
+                    <th width="30%">Total Attendance</th>
+                    <td>Unknown</td>
+                  </tr>
+                  <tr>
+                    <th width="30%">Last Attendance Time</th>
+                    <td>Unknown</td>
+                  </tr>
+                  <tr>
+                    <th width="30%">Time Elapsed</th>
+                    <td>Not available</td>
+                  </tr>
+                </table>
+                
+                <button onclick="openCamera()">Open Camera</button>
+                <button onclick="closeCamera()">Close Camera</button>
+
+                <div id="camera_view" style="margin-top: 20px; display: none;">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height: 26px"></div>
+
+          <div class="card shadow-sm">
+            <div class="card-header bg-transparent border-0">
+              <h3 class="mb-0"><i class="far fa-clone pr-1"></i>Notice</h3>
+            </div>
+            <div class="card-body pt-0">
+              <p>No notices available.</p>
+            </div>
+          </div>
+          <button onclick="window.location.href='/login'">
+            Log Out
+          </button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+numpy==1.23.5
+opencv-python
+flask
+opencv-python
+pymongo
+retina-face
+torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
+transformers
+tensorflow==2.11
+keras==2.11
+##Cài Microsoft Visual C++ Build Tools
+cython
+insightface==0.6.2
+onnxruntime

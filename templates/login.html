@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="{{ url_for('static', filename='styles/login.css') }}"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script
+      src="{{ url_for('static', filename='scripts/login.js') }}"
+      defer
+    ></script>
+    <title>Login</title>
+  </head>
+  <body>
+    <div class="center">
+      <h1>Login</h1>
+      <form action="/home" method="post" id="loginForm" autocomplete="on">
+        <!-- Username -->
+        <div class="txt_field">
+          <input
+            type="text"
+            name="username"
+            id="username"
+            required
+          />
+          <span></span>
+          <label>Username</label>
+        </div>
+
+        <!-- Password -->
+        <div class="txt_field">
+          <input
+            type="password"
+            name="password"
+            id="password"
+            required
+          />
+          <span></span>
+          <label>Password</label>
+        </div>
+
+        <!-- Show Password -->
+        <div class="show_password">
+          <input type="checkbox" id="show_password" />
+          <label for="show_password">Show Password</label>
+        </div>
+
+        <!-- Submit Button -->
+        <input type="submit" value="Login" />
+      </form>
+      <button onclick="window.location.href='/'">Home</button>
+    </div>
+  </body>
+</html>
