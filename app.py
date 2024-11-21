@@ -93,15 +93,15 @@ def resize_with_padding(image, target_size=(224, 224), pad_color=(0, 0, 0)):
 
     return padded_image
 
-def face_analyst_frame(frame):
+def run_vit_model(image):
     try:
-        if frame is None:
+        if image is None:
             raise ValueError("Frame is None. Please check the input image.")
 
-        frame = resize_with_padding(frame, (224, 224))
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        inputs = feature_extractor(images=frame_rgb, return_tensors="pt")
+        image = resize_with_padding(image, target_size=(224, 224))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) 
+        
+        inputs = feature_extractor(images=image, return_tensors="pt")
         inputs = {key: val.to(device) for key, val in inputs.items()}
 
         with torch.no_grad():
@@ -116,30 +116,66 @@ def face_analyst_frame(frame):
         return None
 
 def preprocess_face(image, target_size=(112, 112)):
-    if image is None:
-        raise ValueError("Input image is None. Please check the input.")
 
-    image = resize_with_padding(image, target_size)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) 
-    image = Image.fromarray(image)
+    try:
+        if image is None or not isinstance(image, np.ndarray):
+            raise ValueError("Input image is invalid or None. Please check the input.")
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-    ])
-    return transform(image).unsqueeze(0)
+        image = resize_with_padding(image, target_size)
 
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        transform = transforms.Compose([
+            transforms.ToTensor(),  
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]) 
+        ])
+
+        image_tensor = transform(image).unsqueeze(0) 
+
+        return image_tensor
+    except Exception as e:
+        print(f"Error in preprocess_face: {e}")
+        return None
+
+# def get_face_embedding(image):
+#     try:
+#         if image is None or not isinstance(image, np.ndarray):
+#             raise ValueError("Input image is invalid or None. Please check the input.")
+        
+#         preprocessed_face = preprocess_face(image)
+#         if preprocessed_face is None:
+#             raise ValueError("Failed to preprocess the face image for ArcFace.")
+        
+#         embedding = arcface_model.get(preprocessed_face)
+
+#         if embedding is None:
+#             raise ValueError("Failed to generate embedding for the face.")
+
+#         return embedding[0]  
+#     except Exception as e:
+#         print(f"Error in get_face_embedding: {e}")
+#         return None
 def get_face_embedding(image):
     try:
-        if image is None:
-            raise ValueError(f"Cannot read image from {image}. Please check the file path.")
+        if image is None or not isinstance(image, np.ndarray):
+            raise ValueError("Input image is invalid or None. Please check the input.")
+        
+        # Đảm bảo ảnh đã chuẩn hóa về [-1, 1]
+        image_normalized = (image - 127.5) / 127.5  # Chuẩn hóa về [-1, 1]
 
-        faces = arcface_model.get(image)  
-        if len(faces) == 0:
-            raise ValueError("No faces detected in the image.")
+        # Chuyển kiểu dữ liệu sang float32
+        image_normalized = image_normalized.astype(np.float32)
 
-        embedding = faces[0].embedding
-        return embedding
+        # Thêm chiều batch size và hoán đổi thứ tự các chiều
+        input_data = np.expand_dims(image_normalized, axis=0)  # (1, height, width, channels)
+        input_data = np.transpose(input_data, (0, 3, 1, 2))  # (1, channels, height, width)
+
+        # Tính embedding
+        embedding = arcface_model.models['recognition'].forward(input_data)
+        if embedding is None:
+            raise ValueError("Failed to generate embedding for the face.")
+
+        return embedding[0]  # Return the first embedding
     except Exception as e:
         print(f"Error in get_face_embedding: {e}")
         return None
@@ -160,8 +196,7 @@ def detect_face():
         if not isinstance(frame, np.ndarray):
             raise ValueError("Frame is not a valid numpy array.")
 
-        print(f"Frame shape: {frame.shape if frame is not None else 'None'}")
-        result = face_analyst_frame(frame)
+        result = run_vit_model(frame)
         if result is None:
             return jsonify({"error": "Failed to analyze face in the frame."}), 400
 
@@ -171,29 +206,107 @@ def detect_face():
         print(f"Error occurred:\n{error_details}")
         return jsonify({"error": str(e), "details": error_details}), 500
 
+def crop_face_by_coordinates(image, x1, y1, x2, y2):
+    """
+    Crop a face region from an image using the given coordinates.
+
+    Args:
+        image (np.ndarray): The input image in numpy array format.
+        x1, y1, x2, y2 (int): The coordinates of the face region to crop.
+
+    Returns:
+        np.ndarray: The cropped face region, or None if the coordinates are invalid.
+    """
+    try:
+        height, width, _ = image.shape
+
+        # Ensure the coordinates are within the image size
+        x1 = max(0, min(width, x1))
+        y1 = max(0, min(height, y1))
+        x2 = max(0, min(width, x2))
+        y2 = max(0, min(height, y2))
+
+        # Crop the region
+        cropped_face = image[y1:y2, x1:x2]
+
+        # Check if the cropped region is valid
+        if cropped_face.size == 0:
+            print(f"Invalid crop region with coordinates: {(x1, y1, x2, y2)}")
+            return None
+
+        return cropped_face
+    except Exception as e:
+        print(f"Error in crop_face_by_coordinates: {e}")
+        return None
+
 @app.route("/embedding", methods=["GET"])
 def embedding_arcface():
-    frame_path = "./image/face.jpg"
-    if not frame_path:
-        return jsonify({"error": "Frame path is required"}), 400
+    frame_path = "./image/face1.jpg"
+    save_path = "./imagehandle"
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)  # Create folder if it doesn't exist
 
     try:
+        # Load the image
         frame = cv2.imread(frame_path)
-        if frame is not None:
-            print(f"Image shape: {frame.shape}")
-        else:
-            print("Error: Unable to read image.")
+        if frame is None:
+            raise ValueError(f"Cannot read image from {frame_path}. Please check the file path.")
 
-        face_image = preprocess_face(frame)
-        embedding = get_face_embedding(frame)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        if embedding is None:
-            raise ValueError("Failed to extract embedding from the image.")
+        # Detect faces using the model
+        faces = detect_faces_with_model(frame_rgb)
+        if not faces:
+            return jsonify({"error": "No faces detected in the image."}), 400
 
-        return jsonify({"embedding": embedding.tolist()}), 200
+        embeddings = []
+        face_index = 0  # Index for saving cropped faces
+        for _, face in faces.items():
+            x1, y1, x2, y2 = face["facial_area"]
+
+            # Step 1: Crop the face region
+            cropped_face = crop_face_by_coordinates(frame_rgb, x1, y1, x2, y2)
+            if cropped_face is None:
+                print(f"Failed to crop face region for coordinates: {(x1, y1, x2, y2)}")
+                continue
+
+            # Save the cropped face
+            cropped_face_path = os.path.join(save_path, f"cropped_face_{face_index}.jpg")
+            cv2.imwrite(cropped_face_path, cv2.cvtColor(cropped_face, cv2.COLOR_RGB2BGR))
+            print(f"Saved cropped face: {cropped_face_path}")
+
+            # Step 2: Resize the cropped face
+            cropped_face_resized = resize_with_padding(cropped_face, target_size=(112, 112))
+            if cropped_face_resized is None:
+                print(f"Failed to resize the cropped face for coordinates: {(x1, y1, x2, y2)}")
+                continue
+
+            # Save the resized face
+            resized_face_path = os.path.join(save_path, f"resized_face_{face_index}.jpg")
+            cv2.imwrite(resized_face_path, cv2.cvtColor(cropped_face_resized, cv2.COLOR_RGB2BGR))
+            print(f"Saved resized face: {resized_face_path}")
+
+            print(f"Type before embedding: {type(cropped_face_resized)}")
+            print(f"Shape before embedding: {cropped_face_resized.shape}")
+            print(f"Data type before embedding: {cropped_face_resized.dtype}")
+
+            # Step 3: Generate the face embedding
+            embedding = get_face_embedding(cropped_face_resized)
+            if embedding is None:
+                print(f"Failed to generate embedding for the cropped face.")
+                continue
+
+            embeddings.append(embedding.tolist())  # Convert to list for JSON serialization
+            face_index += 1  # Increment face index
+
+        if not embeddings:
+            return jsonify({"error": "Failed to generate embeddings for any faces in the image."}), 400
+
+        return jsonify({"embeddings": embeddings}), 200
+
     except Exception as e:
         error_details = traceback.format_exc()
-        print(f"Error occurred:\n{error_details}")
+        print(f"An error occurred:\n{error_details}")
         return jsonify({"error": str(e), "details": error_details}), 500
 
 @app.route("/compare", methods=["GET"])
@@ -207,9 +320,15 @@ def compare_faces():
 
         if frame1 is None or frame2 is None:
             return jsonify({"error": "One or both images could not be read. Please check the file paths."}), 400
-
+        
+        print("Compare")
+        print(frame1)
+        print(frame2)
         embedding1 = get_face_embedding(frame1)
         embedding2 = get_face_embedding(frame2)
+        print("After Compare")
+        print(embedding1)
+        print(embedding2)
 
         if embedding1 is None or embedding2 is None:
             return jsonify({"error": "Failed to extract embeddings from one or both images."}), 400
@@ -261,6 +380,7 @@ def detect_faces_with_model(frame_rgb):
 
     try:
         faces = RetinaFace.detect_faces(frame_rgb, model=retinaface_model)
+        print("Face:Detect face with model")
         return faces
     except Exception as e:
         print(f"Error during face detection: {e}")
