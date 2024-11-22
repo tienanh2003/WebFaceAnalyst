@@ -105,6 +105,23 @@
 
                 <div id="camera_view" style="margin-top: 20px; display: none;">
                 </div>
+
+                <button onclick="document.getElementById('imageUpload').click();">Load Image</button>
+                <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="previewImage(event)">
+                <button onclick="detectFaces()">Detect Face</button>
+
+                <div id="uploaded_image" style="margin-top: 20px;">
+                    <h4>Uploaded Image:</h4>
+                    <img id="image_preview" src="#" alt="Uploaded Image" style="max-width: 100%;">
+                </div>
+
+                <div id="result_image" style="margin-top: 20px;">
+                    <h4>Result Image:</h4>
+                    <img id="image_result" src="#" alt="Result Image" style="max-width: 100%;">
+                </div>
+                <div id="faces_container" style="margin-top: 20px;">
+                  <h4>Detected Faces:</h4>
+              </div>
               </div>
             </div>
           </div>

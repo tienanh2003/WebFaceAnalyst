@@ -21,9 +21,10 @@ import multiprocessing
 from transformers import ViTForImageClassification, ViTFeatureExtractor
 #from insightface.model_zoo import get_model
 from insightface.app import FaceAnalysis
-from PIL import Image
 from torchvision import transforms
 import traceback
+import base64
+from io import BytesIO
 
 
 app = Flask(__name__)
@@ -109,7 +110,7 @@ def run_vit_model(image):
             logits = outputs.logits
             predicted_class = logits.argmax(-1).item()
 
-        classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7"]
+        classes = ["Surprise", "Fear", "Disgust", "Happiness", "Sadness", "Angry", "Neutral"]
         return classes[predicted_class]
     except Exception as e:
         print(f"Error in face_analyst_frame: {e}")
@@ -137,24 +138,6 @@ def preprocess_face(image, target_size=(112, 112)):
         print(f"Error in preprocess_face: {e}")
         return None
 
-# def get_face_embedding(image):
-#     try:
-#         if image is None or not isinstance(image, np.ndarray):
-#             raise ValueError("Input image is invalid or None. Please check the input.")
-        
-#         preprocessed_face = preprocess_face(image)
-#         if preprocessed_face is None:
-#             raise ValueError("Failed to preprocess the face image for ArcFace.")
-        
-#         embedding = arcface_model.get(preprocessed_face)
-
-#         if embedding is None:
-#             raise ValueError("Failed to generate embedding for the face.")
-
-#         return embedding[0]  
-#     except Exception as e:
-#         print(f"Error in get_face_embedding: {e}")
-#         return None
 def get_face_embedding(image):
     try:
         if image is None or not isinstance(image, np.ndarray):
@@ -207,16 +190,7 @@ def detect_face():
         return jsonify({"error": str(e), "details": error_details}), 500
 
 def crop_face_by_coordinates(image, x1, y1, x2, y2):
-    """
-    Crop a face region from an image using the given coordinates.
 
-    Args:
-        image (np.ndarray): The input image in numpy array format.
-        x1, y1, x2, y2 (int): The coordinates of the face region to crop.
-
-    Returns:
-        np.ndarray: The cropped face region, or None if the coordinates are invalid.
-    """
     try:
         height, width, _ = image.shape
 
@@ -309,6 +283,189 @@ def embedding_arcface():
         print(f"An error occurred:\n{error_details}")
         return jsonify({"error": str(e), "details": error_details}), 500
 
+# @app.route("/detect_embedding", methods=["POST"])
+# def detect_embedding_arcface():
+#     try:
+#         # Check if an image was uploaded
+#         if 'image' not in request.files:
+#             return jsonify({"error": "No image uploaded"}), 400
+
+#         file = request.files['image']
+#         if file.filename == '':
+#             return jsonify({"error": "No selected file"}), 400
+
+#         # Read the image in memory
+#         image_stream = file.stream
+#         file_bytes = np.asarray(bytearray(image_stream.read()), dtype=np.uint8)
+#         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+#         if frame is None:
+#             return jsonify({"error": "Invalid image"}), 400
+
+#         # Convert image to RGB for face detection
+#         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+#         # Detect faces using the model
+#         faces = detect_faces_with_model(frame_rgb)
+#         if not faces:
+#             return jsonify({"error": "No faces detected in the image."}), 400
+
+#         face_index = 1
+
+#         # Process each face
+#         for _, face in faces.items():
+#             x1, y1, x2, y2 = face["facial_area"]
+
+#             # Ensure coordinates are within image bounds
+#             height, width, _ = frame.shape  # Use original frame dimensions
+#             x1 = max(0, min(width, x1))
+#             y1 = max(0, min(height, y1))
+#             x2 = max(0, min(width, x2))
+#             y2 = max(0, min(height, y2))
+
+#             # Crop the face from the BGR image
+#             cropped_face_bgr = frame[y1:y2, x1:x2]
+#             if cropped_face_bgr is None or cropped_face_bgr.size == 0:
+#                 continue
+
+#             # For embedding extraction, we need the face in RGB
+#             cropped_face_rgb = cv2.cvtColor(cropped_face_bgr, cv2.COLOR_BGR2RGB)
+
+#             # Resize face for embedding extraction if necessary
+#             if cropped_face_rgb.shape[:2] != (112, 112):
+#                 cropped_face_resized = cv2.resize(cropped_face_rgb, (112, 112))
+#             else:
+#                 cropped_face_resized = cropped_face_rgb
+
+#             # Extract embedding
+#             embedding = get_face_embedding(cropped_face_resized)
+#             if embedding is None:
+#                 continue
+
+#             # For ViT model, we can use the cropped face (resize if necessary)
+#             emotion_label = run_vit_model(cropped_face_rgb)
+#             if emotion_label is None:
+#                 emotion_label = "Unknown"
+
+#             # Draw bounding box and label on the original BGR image
+#             label = f"Face {face_index}: {emotion_label}"
+#             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+#             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
+#                         0.5, (0, 255, 0), 2)
+#             face_index += 1
+
+#         # Encode the result image to send back to the client
+#         _, buffer = cv2.imencode('.jpg', frame)
+#         result_image = buffer.tobytes()
+
+#         return Response(result_image, mimetype='image/jpeg')
+
+#     except Exception as e:
+#         error_details = traceback.format_exc()
+#         print(f"An error occurred:\n{error_details}")
+#         return jsonify({"error": str(e), "details": error_details}), 500
+
+@app.route("/detect_embedding", methods=["POST"])
+def detect_embedding_arcface():
+    try:
+        # Check if an image was uploaded
+        if 'image' not in request.files:
+            return jsonify({"error": "No image uploaded"}), 400
+
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+
+        # Read the image in memory
+        image_stream = file.stream
+        file_bytes = np.asarray(bytearray(image_stream.read()), dtype=np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"error": "Invalid image"}), 400
+
+        # Convert image to RGB for face detection
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Detect faces using the model
+        faces = detect_faces_with_model(frame_rgb)
+        if not faces:
+            return jsonify({"error": "No faces detected in the image."}), 400
+
+        face_data = []
+        face_index = 1
+
+        # Process each face
+        for _, face in faces.items():
+            x1, y1, x2, y2 = face["facial_area"]
+
+            # Ensure coordinates are within image bounds
+            height, width, _ = frame.shape  # Use original frame dimensions
+            x1 = max(0, min(width, x1))
+            y1 = max(0, min(height, y1))
+            x2 = max(0, min(width, x2))
+            y2 = max(0, min(height, y2))
+
+            # Crop the face from the BGR image
+            cropped_face_bgr = frame[y1:y2, x1:x2]
+            if cropped_face_bgr is None or cropped_face_bgr.size == 0:
+                continue
+
+            # For embedding extraction, we need the face in RGB
+            cropped_face_rgb = cv2.cvtColor(cropped_face_bgr, cv2.COLOR_BGR2RGB)
+
+            # Resize face for embedding extraction if necessary
+            if cropped_face_rgb.shape[:2] != (112, 112):
+                cropped_face_resized = cv2.resize(cropped_face_rgb, (112, 112))
+            else:
+                cropped_face_resized = cropped_face_rgb
+
+            # Extract embedding
+            embedding = get_face_embedding(cropped_face_resized)
+            if embedding is None:
+                continue
+
+            # For ViT model, we can use the cropped face (resize if necessary)
+            emotion_label = run_vit_model(cropped_face_rgb)
+            if emotion_label is None:
+                emotion_label = "Unknown"
+
+            # Draw bounding box and label on the original BGR image
+            label = f"Face {face_index}: {emotion_label}"
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (0, 255, 0), 2)
+
+            # Encode cropped face image to base64
+            _, face_buffer = cv2.imencode('.jpg', cropped_face_bgr)
+            face_base64 = base64.b64encode(face_buffer).decode('utf-8')
+
+            # Collect face data
+            face_info = {
+                "face_index": face_index,
+                "embedding": embedding.tolist(),  # Convert numpy array to list
+                "emotion": emotion_label,
+                "face_image": face_base64
+            }
+            face_data.append(face_info)
+            face_index += 1
+
+        # Encode the result image to base64
+        _, buffer = cv2.imencode('.jpg', frame)
+        result_image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+        response_data = {
+            "result_image": result_image_base64,
+            "faces": face_data
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        error_details = traceback.format_exc()
+        print(f"An error occurred:\n{error_details}")
+        return jsonify({"error": str(e), "details": error_details}), 500
+
 @app.route("/compare", methods=["GET"])
 def compare_faces():
     try:
@@ -321,9 +478,9 @@ def compare_faces():
         if frame1 is None or frame2 is None:
             return jsonify({"error": "One or both images could not be read. Please check the file paths."}), 400
         
-        print("Compare")
-        print(frame1)
-        print(frame2)
+        frame1 = resize_with_padding(frame1, target_size=(112, 112))
+        frame2 = resize_with_padding(frame2, target_size=(112, 112))
+
         embedding1 = get_face_embedding(frame1)
         embedding2 = get_face_embedding(frame2)
         print("After Compare")

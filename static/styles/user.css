@@ -88,3 +88,16 @@ button:hover {
 .back {
   margin-right: 10px;
 }
+
+.face-info {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+  display: inline-block;
+  vertical-align: top;
+  margin-right: 10px;
+}
+.face-info img {
+  display: block;
+  margin-bottom: 5px;
+}
