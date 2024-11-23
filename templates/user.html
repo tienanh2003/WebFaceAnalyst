@@ -1,127 +1,175 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Face Recognition System</title>
 
-    <link
-      href="{{ url_for('static', filename='styles/user.css') }}"
-      rel="stylesheet"
-      type="text/css"
-    />
-    <!-- Google Fonts -->
-    <link
-      href="https://fonts.googleapis.com/css?family=Lato:300,400,700,900&display=swap"
-    />
-    <!-- Bootstrap CSS -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.min.css"
-    />
-    <!-- Font Awesome CSS -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
-    />
-    <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
-  </head>
-  <body>
-    <h1>Profile</h1>
-    <div class="student-profile py-4">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-4">
-            <div class="card shadow-sm">
-              <div class="card-header bg-transparent text-center">
-                <img
-                  class="profile_img"
-                  src="{{ url_for('static', filename='Files/Images/' + username + '.png') }}"
-                  alt="student dp"
-                />
-                <h3>{{ username }}</h3>
-              </div>
-              <div class="card-body">
-                <p class="mb-0">
-                  <strong class="pr-1">Student ID:</strong>{{ user_id }}
-                </p>
-                <p class="mb-0">
-                  <strong class="pr-1">Date of Birth:</strong> (Not provided)
-                </p>
-                <p class="mb-0">
-                  <strong class="pr-1">Address:</strong> (Not provided)
-                </p>
-                <p class="mb-0">
-                  <strong class="pr-1">Phone Number:</strong> (Not provided)
-                </p>
-                <p class="mb-0">
-                  <strong class="pr-1">Email:</strong> {{ username }}@example.com
-                </p>
-              </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Face Recognition System</title>
+
+  <link href="{{ url_for('static', filename='styles/user.css') }}" rel="stylesheet" type="text/css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700,900&display=swap" />
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.min.css" />
+  <!-- Font Awesome CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" />
+  <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
+</head>
+
+<body>
+  <h1>Profile</h1>
+  <div class="student-profile py-4">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-4">
+          <div class="card shadow-sm">
+            <div class="card-header bg-transparent text-center">
+              <img class="profile_img" src="{{ url_for('static', filename='Files/Images/' + username + '.png') }}"
+                alt="student dp" />
+              <h3>{{ username }}</h3>
+            </div>
+            <div class="card-body">
+              <p class="mb-0">
+                <strong class="pr-1">Student ID:</strong>{{ user_id }}
+              </p>
+              <p class="mb-0">
+                <strong class="pr-1">Date of Birth:</strong> (Not provided)
+              </p>
+              <p class="mb-0">
+                <strong class="pr-1">Address:</strong> (Not provided)
+              </p>
+              <p class="mb-0">
+                <strong class="pr-1">Phone Number:</strong> (Not provided)
+              </p>
+              <p class="mb-0">
+                <strong class="pr-1">Email:</strong> {{ username }}@example.com
+              </p>
             </div>
           </div>
+        </div>
 
-          <div class="col-lg-8">
-            <div class="card shadow-sm">
-              <div class="card-header bg-transparent border-0">
-                <h3 class="mb-0">
-                  <i class="far fa-clone pr-1"></i>General Information
-                </h3>
+        <div class="col-lg-8">
+          <div class="card shadow-sm">
+            <div class="card-header bg-transparent border-0">
+              <h3 class="mb-0">
+                <i class="far fa-clone pr-1"></i>General Information
+              </h3>
+            </div>
+            <div class="card-body pt-0">
+              <table class="table table-bordered">
+                <tr>
+                  <th width="30%">Major</th>
+                  <td>Unknown</td>
+                </tr>
+                <tr>
+                  <th width="30%">Course Started</th>
+                  <td>Unknown</td>
+                </tr>
+                <tr>
+                  <th width="30%">Academic Standing</th>
+                  <td>Unknown</td>
+                </tr>
+                <tr>
+                  <th width="30%">Current Year</th>
+                  <td>Unknown</td>
+                </tr>
+                <tr>
+                  <th width="30%">Total Attendance</th>
+                  <td>Unknown</td>
+                </tr>
+                <tr>
+                  <th width="30%">Last Attendance Time</th>
+                  <td>Unknown</td>
+                </tr>
+                <tr>
+                  <th width="30%">Time Elapsed</th>
+                  <td>Not available</td>
+                </tr>
+              </table>
+
+              {% if message %}
+              <div class="alert alert-info">
+                {{ message }}
               </div>
-              <div class="card-body pt-0">
+              {% endif %}
+
+              <form id="add-user-form" action="/add_user" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                  <label for="name">Name</label>
+                  <input type="text" name="name" id="name" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label for="image">Upload Image</label>
+                  <input type="file" name="image" id="image" class="form-control" accept="image/*" required onchange="previewUploadedImage(event)" />
+                </div>
+                <!-- Hiển thị ảnh đã tải lên -->
+                <div id="preview-container" style="margin-top: 20px;">
+                  <h4>Preview Image:</h4>
+                  <img id="preview-image" src="#" alt="Selected Image" style="max-width: 100%; display: none;" />
+                </div>
+                <button type="submit" class="btn btn-primary">Add User</button>
+              </form>
+              
+              <div id="user-list" style="margin-top: 30px;">
+                <h4>User List:</h4>
                 <table class="table table-bordered">
-                  <tr>
-                    <th width="30%">Major</th>
-                    <td>Unknown</td>
-                  </tr>
-                  <tr>
-                    <th width="30%">Course Started</th>
-                    <td>Unknown</td>
-                  </tr>
-                  <tr>
-                    <th width="30%">Academic Standing</th>
-                    <td>Unknown</td>
-                  </tr>
-                  <tr>
-                    <th width="30%">Current Year</th>
-                    <td>Unknown</td>
-                  </tr>
-                  <tr>
-                    <th width="30%">Total Attendance</th>
-                    <td>Unknown</td>
-                  </tr>
-                  <tr>
-                    <th width="30%">Last Attendance Time</th>
-                    <td>Unknown</td>
-                  </tr>
-                  <tr>
-                    <th width="30%">Time Elapsed</th>
-                    <td>Not available</td>
-                  </tr>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Image Path</th>
+                    </tr>
+                  </thead>
+                  <tbody id="user-list-body">
+                    <!-- Các hàng sẽ được cập nhật từ JavaScript -->
+                  </tbody>
                 </table>
-                
-                <button onclick="openCamera()">Open Camera</button>
-                <button onclick="closeCamera()">Close Camera</button>
+              </div>              
 
-                <div id="camera_view" style="margin-top: 20px; display: none;">
-                </div>
+              <button onclick="openCamera()">Open Camera</button>
+              <button onclick="closeCamera()">Close Camera</button>
 
-                <button onclick="document.getElementById('imageUpload').click();">Load Image</button>
-                <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="previewImage(event)">
-                <button onclick="detectFaces()">Detect Face</button>
-
-                <div id="uploaded_image" style="margin-top: 20px;">
-                    <h4>Uploaded Image:</h4>
-                    <img id="image_preview" src="#" alt="Uploaded Image" style="max-width: 100%;">
-                </div>
-
-                <div id="result_image" style="margin-top: 20px;">
-                    <h4>Result Image:</h4>
-                    <img id="image_result" src="#" alt="Result Image" style="max-width: 100%;">
-                </div>
-                <div id="faces_container" style="margin-top: 20px;">
-                  <h4>Detected Faces:</h4>
+              <div id="camera_view" style="margin-top: 20px; display: none;">
               </div>
+              <h4>Add User</h4>
+
+
+              <button onclick="document.getElementById('imageUpload').click();">Load Image</button>
+              <input type="file" id="imageUpload" accept="image/*" style="display: none;"
+                onchange="previewImage(event)">
+              <button onclick="detectFaces()">Detect Face</button>
+
+              <div id="uploaded_image" style="margin-top: 20px;">
+                <h4>Uploaded Image:</h4>
+                <img id="image_preview" src="#" alt="Uploaded Image" style="max-width: 100%;">
+              </div>
+
+              <div id="result_image" style="margin-top: 20px;">
+                <h4>Result Image:</h4>
+                <img id="image_result" src="#" alt="Result Image" style="max-width: 100%;">
+              </div>
+              <div id="faces_container" style="margin-top: 20px;">
+                <h4>Detected Faces:</h4>
+              </div>
+              <div id="video_controls" style="margin-top: 20px;">
+                <h4>Video Processing:</h4>
+                <input type="file" id="video_input" accept="video/*" onchange="uploadVideo()" />
+                <button onclick="detectVideo()">Detect Video</button>
+              </div>
+
+              <div id="uploaded_video" style="margin-top: 20px;">
+                <h4>Uploaded Video:</h4>
+                <video id="video_preview" controls style="max-width: 100%;">
+                  <source src="#" type="video/mp4">
+                  Trình duyệt của bạn không hỗ trợ video.
+                </video>
+              </div>
+
+              <div id="result_video" style="margin-top: 20px;">
+                <h4>Processed Video:</h4>
+                <video id="video_result" controls style="max-width: 100%;">
+                  <source src="#" type="video/mp4">
+                  Trình duyệt của bạn không hỗ trợ video.
+                </video>
               </div>
             </div>
           </div>
@@ -142,5 +190,6 @@
         </div>
       </div>
     </div>
-  </body>
+</body>
+
 </html>

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template,  Response
+from flask import Flask, request, jsonify, render_template,  Response, send_file, url_for, send_from_directory
 from utils.database import Database
 from utils.accounts import AccountService
 from utils.users import UserService
@@ -13,6 +13,7 @@ from utils.strangers import StrangerService
 import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 import cv2
+
 import tensorflow as tf
 import torch
 import numpy as np
@@ -25,7 +26,9 @@ from torchvision import transforms
 import traceback
 import base64
 from io import BytesIO
-
+from flask import send_from_directory
+import faiss
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
@@ -64,6 +67,8 @@ try:
     print("ArcFace model loaded successfully")
 except Exception as e:
     print(f"Error loading ArcFace model: {e}")
+
+data = []
 
 def resize_with_padding(image, target_size=(224, 224), pad_color=(0, 0, 0)):
 
@@ -310,6 +315,7 @@ def embedding_arcface():
 #         if not faces:
 #             return jsonify({"error": "No faces detected in the image."}), 400
 
+#         face_data = []
 #         face_index = 1
 
 #         # Process each face
@@ -352,23 +358,88 @@ def embedding_arcface():
 #             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 #             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
 #                         0.5, (0, 255, 0), 2)
+
+#             # Encode cropped face image to base64
+#             _, face_buffer = cv2.imencode('.jpg', cropped_face_bgr)
+#             face_base64 = base64.b64encode(face_buffer).decode('utf-8')
+
+#             # Collect face data
+#             face_info = {
+#                 "face_index": face_index,
+#                 "embedding": embedding.tolist(),  # Convert numpy array to list
+#                 "emotion": emotion_label,
+#                 "face_image": face_base64
+#             }
+#             face_data.append(face_info)
 #             face_index += 1
 
-#         # Encode the result image to send back to the client
+#         # Encode the result image to base64
 #         _, buffer = cv2.imencode('.jpg', frame)
-#         result_image = buffer.tobytes()
+#         result_image_base64 = base64.b64encode(buffer).decode('utf-8')
 
-#         return Response(result_image, mimetype='image/jpeg')
+#         response_data = {
+#             "result_image": result_image_base64,
+#             "faces": face_data
+#         }
+
+#         return jsonify(response_data), 200
 
 #     except Exception as e:
 #         error_details = traceback.format_exc()
 #         print(f"An error occurred:\n{error_details}")
 #         return jsonify({"error": str(e), "details": error_details}), 500
 
+def find_nearest_face(embedding, threshold=0.6):
+    try:
+        # Lấy embedding từ data
+        if not data:
+            return None, None
+
+        embeddings = np.array([np.array(user['embedding']) for user in data]).astype('float32')
+        names = [user['name'] for user in data]
+
+        # Tạo FAISS index
+        d = embeddings.shape[1]  # Số chiều của embedding
+        index = faiss.IndexFlatL2(d)  # Index L2
+        index.add(embeddings)  # Thêm embedding vào index
+
+        # Tìm embedding gần nhất
+        distances, indices = index.search(np.array([embedding]).astype('float32'), 1)
+
+        # Kiểm tra khoảng cách có nằm trong ngưỡng
+        nearest_distance = distances[0][0]
+        nearest_index = indices[0][0]
+
+        if nearest_distance <= threshold:
+            return names[nearest_index], nearest_distance  # Trả về tên và khoảng cách
+        else:
+            return "Người lạ", nearest_distance
+
+    except Exception as e:
+        print(f"Error in find_nearest_face: {e}")
+        return None, None
+
+def find_closest_face(embedding, threshold=0.6):
+    if not data:
+        return None, None
+
+    min_distance = float("inf")
+    closest_name = None
+
+    for user in data:
+        stored_embedding = np.array(user["embedding"])
+        distance = np.linalg.norm(embedding - stored_embedding)
+
+        if distance < min_distance and distance < threshold:
+            min_distance = distance
+            closest_name = user["name"]
+
+    return closest_name, min_distance if closest_name else None
+
 @app.route("/detect_embedding", methods=["POST"])
 def detect_embedding_arcface():
     try:
-        # Check if an image was uploaded
+        # Kiểm tra xem ảnh có được gửi không
         if 'image' not in request.files:
             return jsonify({"error": "No image uploaded"}), 400
 
@@ -376,7 +447,7 @@ def detect_embedding_arcface():
         if file.filename == '':
             return jsonify({"error": "No selected file"}), 400
 
-        # Read the image in memory
+        # Đọc ảnh từ file upload
         image_stream = file.stream
         file_bytes = np.asarray(bytearray(image_stream.read()), dtype=np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
@@ -384,87 +455,62 @@ def detect_embedding_arcface():
         if frame is None:
             return jsonify({"error": "Invalid image"}), 400
 
-        # Convert image to RGB for face detection
+        # Chuyển đổi ảnh sang RGB để phát hiện khuôn mặt
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # Detect faces using the model
         faces = detect_faces_with_model(frame_rgb)
+
         if not faces:
             return jsonify({"error": "No faces detected in the image."}), 400
 
-        face_data = []
-        face_index = 1
-
-        # Process each face
-        for _, face in faces.items():
+        face_data = []  # Danh sách lưu thông tin khuôn mặt
+        for face_id, face in faces.items():
             x1, y1, x2, y2 = face["facial_area"]
 
-            # Ensure coordinates are within image bounds
-            height, width, _ = frame.shape  # Use original frame dimensions
-            x1 = max(0, min(width, x1))
-            y1 = max(0, min(height, y1))
-            x2 = max(0, min(width, x2))
-            y2 = max(0, min(height, y2))
-
-            # Crop the face from the BGR image
-            cropped_face_bgr = frame[y1:y2, x1:x2]
-            if cropped_face_bgr is None or cropped_face_bgr.size == 0:
+            # Crop và phân tích khuôn mặt
+            cropped_face = frame_rgb[y1:y2, x1:x2]
+            if cropped_face.size == 0:
                 continue
 
-            # For embedding extraction, we need the face in RGB
-            cropped_face_rgb = cv2.cvtColor(cropped_face_bgr, cv2.COLOR_BGR2RGB)
-
-            # Resize face for embedding extraction if necessary
-            if cropped_face_rgb.shape[:2] != (112, 112):
-                cropped_face_resized = cv2.resize(cropped_face_rgb, (112, 112))
-            else:
-                cropped_face_resized = cropped_face_rgb
-
-            # Extract embedding
+            cropped_face_resized = cv2.resize(cropped_face, (112, 112))
             embedding = get_face_embedding(cropped_face_resized)
-            if embedding is None:
-                continue
+            emotion = run_vit_model(cropped_face)
 
-            # For ViT model, we can use the cropped face (resize if necessary)
-            emotion_label = run_vit_model(cropped_face_rgb)
-            if emotion_label is None:
-                emotion_label = "Unknown"
+            # Tìm tên người gần nhất hoặc đánh dấu là Guest
+            name, distance = find_closest_face(embedding)
 
-            # Draw bounding box and label on the original BGR image
-            label = f"Face {face_index}: {emotion_label}"
+            if not name:
+                name = "Guest"
+
+            # Vẽ bounding box và tên trên ảnh gốc
+            label = f"{name}: {emotion}"
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (0, 255, 0), 2)
 
-            # Encode cropped face image to base64
-            _, face_buffer = cv2.imencode('.jpg', cropped_face_bgr)
+            # Encode khuôn mặt đã cắt sang Base64
+            _, face_buffer = cv2.imencode('.jpg', cv2.cvtColor(cropped_face, cv2.COLOR_RGB2BGR))
             face_base64 = base64.b64encode(face_buffer).decode('utf-8')
 
-            # Collect face data
-            face_info = {
-                "face_index": face_index,
-                "embedding": embedding.tolist(),  # Convert numpy array to list
-                "emotion": emotion_label,
-                "face_image": face_base64
-            }
-            face_data.append(face_info)
-            face_index += 1
+            # Lưu thông tin khuôn mặt
+            face_data.append({
+                "face_index": face_id,
+                "name": name,
+                "distance": distance,
+                "emotion": emotion,
+                "face_image": face_base64,
+            })
 
-        # Encode the result image to base64
+        # Encode ảnh kết quả (ảnh gốc có bounding box) sang Base64
         _, buffer = cv2.imencode('.jpg', frame)
         result_image_base64 = base64.b64encode(buffer).decode('utf-8')
 
-        response_data = {
+        return jsonify({
             "result_image": result_image_base64,
             "faces": face_data
-        }
-
-        return jsonify(response_data), 200
+        }), 200
 
     except Exception as e:
-        error_details = traceback.format_exc()
-        print(f"An error occurred:\n{error_details}")
-        return jsonify({"error": str(e), "details": error_details}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/compare", methods=["GET"])
 def compare_faces():
@@ -497,6 +543,206 @@ def compare_faces():
         error_details = traceback.format_exc()
         print("Error occurred:\n", error_details)
         return jsonify({"error": str(e), "details": error_details}), 500
+
+def process_video(input_path, output_path, time_s):
+    try:
+        cap = cv2.VideoCapture(input_path)
+
+        if not cap.isOpened():
+            raise ValueError("Cannot open video file.")
+
+        # Get video information
+        fps = min(30, int(cap.get(cv2.CAP_PROP_FPS)))  # Limit FPS to a maximum of 30
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        # Calculate the maximum number of frames to process
+        max_frames = min(total_frames, int(time_s * fps))
+
+        # Define codec and writer for the output video
+        fourcc = cv2.VideoWriter_fourcc(*'H264')
+        writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        if not writer.isOpened():
+            raise ValueError("VideoWriter failed to open. Check codec or file path.")
+
+        frame_count = 0
+
+        while frame_count < max_frames:
+            ret, frame = cap.read()
+            if not ret:
+                print("No more frames to read.")
+                break
+
+            # Process each frame
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            faces = detect_faces_with_model(frame_rgb)
+
+            for _, face in faces.items():
+                x1, y1, x2, y2 = face["facial_area"]
+                x1, y1, x2, y2 = max(0, x1), max(0, y1), min(width, x2), min(height, y2)
+
+                # Crop and analyze face
+                cropped_face = frame_rgb[y1:y2, x1:x2]
+                if cropped_face.size == 0:
+                    continue  # Skip invalid face
+
+                # Resize and compute embedding
+                cropped_face_resized = cv2.resize(cropped_face, (112, 112))
+                embedding = get_face_embedding(cropped_face_resized)
+                emotion = run_vit_model(cropped_face)
+
+                # Find closest face in data
+                name, _ = find_closest_face(embedding)
+                if name is None:
+                    name = "Guest"
+
+                # Draw bounding box and label on the frame
+                label = f"{name}: {emotion}"
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (0, 255, 0), 2)
+
+            # Write frame to output video
+            writer.write(frame)
+            frame_count += 1
+            print(f"Processing frame {frame_count}/{max_frames}...")
+
+        # Release resources
+        cap.release()
+        writer.release()
+        print(f"Finished processing {frame_count} frames. Video saved at: {output_path}")
+
+    except Exception as e:
+        print(f"An error occurred in process_video:\n{traceback.format_exc()}")
+# def process_video(input_path, output_path, time_s):
+#     try:
+#         cap = cv2.VideoCapture(input_path)
+#         if not cap.isOpened():
+#             raise ValueError("Cannot open video file.")
+
+#         fps = int(cap.get(cv2.CAP_PROP_FPS))
+#         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+#         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+#         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+#         print(f"Video info: FPS={fps}, Total Frames={total_frames}, Resolution={width}x{height}")
+
+#         # Mở VideoWriter
+#         fourcc = cv2.VideoWriter_fourcc(*'H264')
+#         writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+#         if not writer.isOpened():
+#             raise ValueError("Failed to open VideoWriter.")
+
+#         frame_count = 0
+#         while frame_count < total_frames:
+#             ret, frame = cap.read()
+#             if not ret:
+#                 print("No more frames to read.")
+#                 break
+
+#             # Ghi từng frame (không chỉnh sửa để kiểm tra)
+#             writer.write(frame)
+#             frame_count += 1
+#             print(f"Processing frame {frame_count}/{total_frames}...")
+
+#         cap.release()
+#         writer.release()
+#         print(f"Video processing complete. Saved to {output_path}")
+
+#     except Exception as e:
+#         print(f"Error in process_video: {e}")
+
+@app.route('/videos/<path:filename>')
+def serve_video(filename):
+    return send_from_directory('./videos', filename, mimetype='video/mp4')
+
+@app.route("/detect_video", methods=["POST"])
+def detect_video():
+    try:
+        # Kiểm tra file video
+        if 'video' not in request.files:
+            return jsonify({"error": "Chưa upload video."}), 400
+
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({"error": "Không có video nào được chọn."}), 400
+
+        # Lưu file video upload
+        input_dir = "./videos"
+        os.makedirs(input_dir, exist_ok=True)
+        input_filename = secure_filename(file.filename)
+        video_path = os.path.join(input_dir, input_filename)
+        file.save(video_path)
+
+        # Xử lý video (ví dụ thêm các bước xử lý tại đây)
+        output_filename = "processed_" + input_filename
+        output_path = os.path.join(input_dir, output_filename)
+        process_video(video_path, output_path, time_s=1)  # Hàm xử lý video
+
+        # Trả về đường dẫn của video đã xử lý
+        video_url = url_for('serve_video', filename=output_filename)
+        return jsonify({"video_url": video_url}), 200
+
+    except Exception as e:
+        error_details = traceback.format_exc()
+        print(f"Lỗi:\n{error_details}")
+        return jsonify({"error": str(e), "details": error_details}), 500
+    
+@app.route("/add_user", methods=["POST"])
+def add_user():
+    global data
+    try:
+        if 'image' not in request.files:
+            return jsonify({"error": "No image uploaded"}), 400
+
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+
+        image_stream = file.stream
+        file_bytes = np.asarray(bytearray(image_stream.read()), dtype=np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"error": "Invalid image"}), 400
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        faces = detect_faces_with_model(frame_rgb)
+
+        if not faces:
+            return jsonify({"error": "No face detected in the image."}), 400
+        if len(faces) > 1:
+            return jsonify({"error": "More than one face detected."}), 400
+
+        _, face = next(iter(faces.items()))
+        x1, y1, x2, y2 = face["facial_area"]
+        cropped_face = frame[y1:y2, x1:x2]
+        cropped_face_rgb = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2RGB)
+        cropped_face_resized = cv2.resize(cropped_face_rgb, (112, 112))
+
+        embedding = get_face_embedding(cropped_face_resized)
+        if embedding is None:
+            return jsonify({"error": "Failed to generate embedding."}), 400
+
+        username = request.form.get("name")
+        if not username:
+            return jsonify({"error": "Username is required."}), 400
+
+        os.makedirs('profile', exist_ok=True)
+        filename = f"{username}.png"
+        filepath = os.path.join("profile", filename)
+        # cv2.imwrite(filepath, cv2.cvtColor(cropped_face, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(filepath, cropped_face)
+
+        user_info = {"name": username, "image": filepath, "embedding": embedding.tolist()}
+        data.append(user_info)
+
+        return jsonify({"message": f"User {username} added successfully.", "data": data}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/")
 def index():
@@ -534,14 +780,18 @@ def home():
     return render_template("login.html", error="Invalid username or password")
 
 def detect_faces_with_model(frame_rgb):
-
     try:
         faces = RetinaFace.detect_faces(frame_rgb, model=retinaface_model)
-        print("Face:Detect face with model")
+
+        # Kiểm tra nếu kết quả không phải là dictionary
+        if not isinstance(faces, dict):
+            raise ValueError("Unexpected output from RetinaFace.detect_faces. Expected a dictionary.")
+
         return faces
     except Exception as e:
         print(f"Error during face detection: {e}")
-        return {}
+        return {}  # Trả về dictionary rỗng nếu gặp lỗi
+
 
 def process_frame_worker(input_queue, output_queue, process_id):
 
