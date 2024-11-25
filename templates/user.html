@@ -21,78 +21,14 @@
   <div class="student-profile py-4">
     <div class="container">
       <div class="row">
-        <div class="col-lg-4">
-          <div class="card shadow-sm">
-            <div class="card-header bg-transparent text-center">
-              <img class="profile_img" src="{{ url_for('static', filename='Files/Images/' + username + '.png') }}"
-                alt="student dp" />
-              <h3>{{ username }}</h3>
-            </div>
-            <div class="card-body">
-              <p class="mb-0">
-                <strong class="pr-1">Student ID:</strong>{{ user_id }}
-              </p>
-              <p class="mb-0">
-                <strong class="pr-1">Date of Birth:</strong> (Not provided)
-              </p>
-              <p class="mb-0">
-                <strong class="pr-1">Address:</strong> (Not provided)
-              </p>
-              <p class="mb-0">
-                <strong class="pr-1">Phone Number:</strong> (Not provided)
-              </p>
-              <p class="mb-0">
-                <strong class="pr-1">Email:</strong> {{ username }}@example.com
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div class="col-lg-8">
           <div class="card shadow-sm">
             <div class="card-header bg-transparent border-0">
               <h3 class="mb-0">
-                <i class="far fa-clone pr-1"></i>General Information
+                <i class="far fa-clone pr-1"></i>Face Recognition System
               </h3>
             </div>
             <div class="card-body pt-0">
-              <table class="table table-bordered">
-                <tr>
-                  <th width="30%">Major</th>
-                  <td>Unknown</td>
-                </tr>
-                <tr>
-                  <th width="30%">Course Started</th>
-                  <td>Unknown</td>
-                </tr>
-                <tr>
-                  <th width="30%">Academic Standing</th>
-                  <td>Unknown</td>
-                </tr>
-                <tr>
-                  <th width="30%">Current Year</th>
-                  <td>Unknown</td>
-                </tr>
-                <tr>
-                  <th width="30%">Total Attendance</th>
-                  <td>Unknown</td>
-                </tr>
-                <tr>
-                  <th width="30%">Last Attendance Time</th>
-                  <td>Unknown</td>
-                </tr>
-                <tr>
-                  <th width="30%">Time Elapsed</th>
-                  <td>Not available</td>
-                </tr>
-              </table>
-
-              {% if message %}
-              <div class="alert alert-info">
-                {{ message }}
-              </div>
-              {% endif %}
-
               <form id="add-user-form" action="/add_user" method="POST" enctype="multipart/form-data">
                 <div class="form-group">
                   <label for="name">Name</label>
@@ -100,7 +36,8 @@
                 </div>
                 <div class="form-group">
                   <label for="image">Upload Image</label>
-                  <input type="file" name="image" id="image" class="form-control" accept="image/*" required onchange="previewUploadedImage(event)" />
+                  <input type="file" name="image" id="image" class="form-control" accept="image/*" required
+                    onchange="previewUploadedImage(event)" />
                 </div>
                 <!-- Hiển thị ảnh đã tải lên -->
                 <div id="preview-container" style="margin-top: 20px;">
@@ -109,7 +46,7 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Add User</button>
               </form>
-              
+
               <div id="user-list" style="margin-top: 30px;">
                 <h4>User List:</h4>
                 <table class="table table-bordered">
@@ -123,7 +60,7 @@
                     <!-- Các hàng sẽ được cập nhật từ JavaScript -->
                   </tbody>
                 </table>
-              </div>              
+              </div>
 
               <button onclick="openCamera()">Open Camera</button>
               <button onclick="closeCamera()">Close Camera</button>
@@ -171,22 +108,14 @@
                   Trình duyệt của bạn không hỗ trợ video.
                 </video>
               </div>
+
+              <div id="emotion_results" style="margin-top: 20px;">
+                <h4>Emotion Counts Per Second:</h4>
+                <div id="emotion_results_content"></div>
+              </div>
+              
             </div>
           </div>
-
-          <div style="height: 26px"></div>
-
-          <div class="card shadow-sm">
-            <div class="card-header bg-transparent border-0">
-              <h3 class="mb-0"><i class="far fa-clone pr-1"></i>Notice</h3>
-            </div>
-            <div class="card-body pt-0">
-              <p>No notices available.</p>
-            </div>
-          </div>
-          <button onclick="window.location.href='/login'">
-            Log Out
-          </button>
         </div>
       </div>
     </div>

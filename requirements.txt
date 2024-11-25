@@ -19,4 +19,6 @@ opencv-python-headless==4.7.0.72
 ffmpeg-python==0.2.0
 faiss-cpu==1.7.3
 transformers
+cython_bbox
+scipy
 

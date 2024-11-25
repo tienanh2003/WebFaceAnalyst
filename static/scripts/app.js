@@ -169,37 +169,84 @@ function uploadVideo() {
   videoPreview.load();
 }
 
+// function detectVideo() {
+//   const fileInput = document.getElementById("video_input");
+//   const file = fileInput.files[0];
+//   if (!file) {
+//     alert("Vui lòng tải lên một video.");
+//     return;
+//   }
+
+//   const formData = new FormData();
+//   formData.append("video", file);
+
+//   fetch("/detect_video", {
+//     method: "POST",
+//     body: formData,
+//   })
+//     .then(response => response.json())
+//     .then(data => {
+//       if (data.error) {
+//         alert(data.error);
+//         return;
+//       }
+
+//       // Gán URL của video xử lý vào thẻ <video>
+//       const videoResult = document.getElementById("video_result");
+//       videoResult.src = data.video_url;
+//       videoResult.load();
+//     })
+//     .catch(error => {
+//       console.error("Lỗi:", error);
+//       alert("Đã xảy ra lỗi trong quá trình xử lý video.");
+//     });
+// }
 function detectVideo() {
-  const fileInput = document.getElementById("video_input");
-  const file = fileInput.files[0];
-  if (!file) {
-    alert("Vui lòng tải lên một video.");
-    return;
+  const videoInput = document.getElementById('video_input');
+  if (videoInput.files.length === 0) {
+      alert('Please select a video file.');
+      return;
   }
 
   const formData = new FormData();
-  formData.append("video", file);
+  formData.append('video', videoInput.files[0]);
 
-  fetch("/detect_video", {
-    method: "POST",
-    body: formData,
+  fetch('/detect_video', {
+      method: 'POST',
+      body: formData
   })
-    .then(response => response.json())
-    .then(data => {
+  .then(response => response.json())
+  .then(data => {
       if (data.error) {
-        alert(data.error);
-        return;
+          alert('Error: ' + data.error);
+          return;
       }
 
-      // Gán URL của video xử lý vào thẻ <video>
-      const videoResult = document.getElementById("video_result");
-      videoResult.src = data.video_url;
+      // Hiển thị video đã xử lý
+      const videoResult = document.getElementById('video_result');
+      const videoSource = videoResult.querySelector('source');
+      videoSource.src = data.video_url;
       videoResult.load();
-    })
-    .catch(error => {
-      console.error("Lỗi:", error);
-      alert("Đã xảy ra lỗi trong quá trình xử lý video.");
-    });
+
+      // Hiển thị kết quả biểu cảm
+      const emotionResultsContent = document.getElementById('emotion_results_content');
+      emotionResultsContent.innerHTML = '';
+
+      const emotionsPerId = data.emotions_per_second_per_id;
+      for (const id in emotionsPerId) {
+          const emotionCounts = emotionsPerId[id];
+          let emotionText = `ID ${id}: `;
+          for (const emotion in emotionCounts) {
+              emotionText += `${emotion}: ${emotionCounts[emotion]} times per second; `;
+          }
+          const p = document.createElement('p');
+          p.textContent = emotionText;
+          emotionResultsContent.appendChild(p);
+      }
+  })
+  .catch(error => {
+      console.error('Error:', error);
+  });
 }
 
 function addUser() {
