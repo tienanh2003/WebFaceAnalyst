@@ -43,91 +43,6 @@ function previewImage(event) {
   reader.readAsDataURL(uploadedImageFile);
 }
 
-// function detectFaces() {
-//     if (!uploadedImageFile) {
-//         alert("Please upload an image first.");
-//         return;
-//     }
-
-//     let formData = new FormData();
-//     formData.append('image', uploadedImageFile);
-
-//     fetch('/detect_embedding', {
-//         method: 'POST',
-//         body: formData
-//     })
-//     .then(response => response.blob())
-//     .then(blob => {
-//         let img = document.getElementById('image_result');
-//         img.src = URL.createObjectURL(blob);
-//     })
-//     .catch(error => {
-//         console.error('Error:', error);
-//     });
-// }
-// function detectFaces() {
-//   if (!uploadedImageFile) {
-//     alert("Please upload an image first.");
-//     return;
-//   }
-
-//   let formData = new FormData();
-//   formData.append('image', uploadedImageFile);
-
-//   fetch('/detect_embedding', {
-//     method: 'POST',
-//     body: formData
-//   })
-//     .then(response => {
-//       if (!response.ok) {
-//         return response.json().then(err => { throw err; });
-//       }
-//       return response.json();
-//     })
-//     .then(data => {
-//       // Display the result image
-//       let imgResult = document.getElementById('image_result');
-//       imgResult.src = 'data:image/jpeg;base64,' + data.result_image;
-
-//       // Clear previous face data
-//       let facesContainer = document.getElementById('faces_container');
-//       facesContainer.innerHTML = '';
-
-//       // Loop through each face and display information
-//       data.faces.forEach(face => {
-//         // Create a container for each face
-//         let faceDiv = document.createElement('div');
-//         faceDiv.className = 'face-info';
-
-//         // Face image
-//         let faceImg = document.createElement('img');
-//         faceImg.src = 'data:image/jpeg;base64,' + face.face_image;
-//         faceImg.alt = `Face ${face.face_index}`;
-//         faceImg.style.maxWidth = '150px';
-
-//         // Embedding (display first few elements for brevity)
-//         let embeddingP = document.createElement('p');
-//         embeddingP.textContent = `Embedding: [${face.embedding.slice(0, 5).map(e => e.toFixed(4)).join(', ')}... ]`;
-
-//         // Emotion label
-//         let emotionP = document.createElement('p');
-//         emotionP.textContent = `Emotion: ${face.emotion}`;
-
-//         // Append to faceDiv
-//         faceDiv.appendChild(faceImg);
-//         faceDiv.appendChild(embeddingP);
-//         faceDiv.appendChild(emotionP);
-
-//         // Append faceDiv to facesContainer
-//         facesContainer.appendChild(faceDiv);
-//       });
-//     })
-//     .catch(error => {
-//       console.error('Error:', error);
-//       alert(error.error || 'An error occurred during face detection.');
-//     });
-// }
-
 let uploadedVideoFile = null;
 
 // Load video
@@ -217,6 +132,7 @@ function detectVideo() {
   })
   .then(response => response.json())
   .then(data => {
+      console.log(data); // Log dữ liệu từ server
       if (data.error) {
           alert('Error: ' + data.error);
           return;
@@ -229,15 +145,15 @@ function detectVideo() {
       videoResult.load();
 
       // Hiển thị kết quả biểu cảm
-      const emotionResultsContent = document.getElementById('emotion_results_content');
+      const emotionResultsContent = document.getElementById('emotion_percentages_per_id');
       emotionResultsContent.innerHTML = '';
 
-      const emotionsPerId = data.emotions_per_second_per_id;
+      const emotionsPerId = data.emotion_percentages_per_id;
       for (const id in emotionsPerId) {
-          const emotionCounts = emotionsPerId[id];
+          const emotionPercentages = emotionsPerId[id];
           let emotionText = `ID ${id}: `;
-          for (const emotion in emotionCounts) {
-              emotionText += `${emotion}: ${emotionCounts[emotion]} times per second; `;
+          for (const emotion in emotionPercentages) {
+              emotionText += `${emotion}: ${emotionPercentages[emotion].toFixed(2)}%; `;
           }
           const p = document.createElement('p');
           p.textContent = emotionText;

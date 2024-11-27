@@ -71,12 +71,13 @@ def detect_video():
         output_path = os.path.join(input_dir, output_filename)
 
         # Call process_video and get emotions_per_second_per_id
-        emotions_per_second_per_id = video_processor.process_video(video_path, output_path, time_s=1)
+        emotion_percentages_per_id  = video_processor.process_video(video_path, output_path, time_s=1)
 
         video_url = url_for('serve_video', filename=output_filename)
+
         return jsonify({
             "video_url": video_url,
-            "emotions_per_second_per_id": emotions_per_second_per_id
+            "emotion_percentages_per_id": emotion_percentages_per_id 
         }), 200
 
     except Exception as e:

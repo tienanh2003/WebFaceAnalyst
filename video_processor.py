@@ -171,7 +171,7 @@ class VideoProcessor:
 
     #     except Exception as e:
     #         print(f"An error occurred in process_video:\n{traceback.format_exc()}")
-    def process_video(self, input_path, output_path, time_s):
+    def process_video(self, input_path, output_path, time_s): 
         try:
             cap = cv2.VideoCapture(input_path)
             if not cap.isOpened():
@@ -197,8 +197,9 @@ class VideoProcessor:
             byte_tracker = BYTETracker(tracker_args, frame_rate=fps)
             frame_count = 0
 
-            # Initialize variable to store emotion counts per track_id
+            # Initialize variables to store emotion counts per track_id
             emotion_counts_per_id = {}  # {track_id: {emotion: count}}
+            total_emotion_counts_per_id = {}  # {track_id: total_emotion_counts}
 
             while frame_count < max_frames:
                 ret, frame = cap.read()
@@ -236,9 +237,11 @@ class VideoProcessor:
                         # Update emotion counts per track_id
                         if track_id not in emotion_counts_per_id:
                             emotion_counts_per_id[track_id] = {}
+                            total_emotion_counts_per_id[track_id] = 0
                         if emotion not in emotion_counts_per_id[track_id]:
                             emotion_counts_per_id[track_id][emotion] = 0
                         emotion_counts_per_id[track_id][emotion] += 1
+                        total_emotion_counts_per_id[track_id] += 1
 
                         label = f"ID {track_id}: {name} ({emotion})"
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -253,14 +256,16 @@ class VideoProcessor:
             writer.release()
             print(f"Finished processing {frame_count} frames. Video saved at: {output_path}")
 
-            # Calculate emotion counts per second per track_id
-            emotions_per_second_per_id = {}
-            for track_id, emotions in emotion_counts_per_id.items():
-                emotions_per_second_per_id[track_id] = {}
-                for emotion, count in emotions.items():
-                    emotions_per_second_per_id[track_id][emotion] = float(count) / frame_count * fps
+            # Calculate emotion percentages per track_id
+            emotion_percentages_per_id = {}
+            for track_id, emotion_counts in emotion_counts_per_id.items():
+                total_counts = total_emotion_counts_per_id[track_id]
+                emotion_percentages_per_id[track_id] = {}
+                for emotion, count in emotion_counts.items():
+                    percentage = (count / total_counts) * 100
+                    emotion_percentages_per_id[track_id][emotion] = percentage
 
-            return emotions_per_second_per_id
+            return emotion_percentages_per_id
 
         except Exception as e:
             print(f"An error occurred in process_video:\n{traceback.format_exc()}")
